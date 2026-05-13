@@ -43,10 +43,59 @@ open class Window: TreeNode, Hashable {
     func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) { die("Not implemented") }
 }
 
-enum LayoutReason: Equatable {
+enum LayoutReason {
     case standard
     /// Reason for the cur temp layout is macOS native fullscreen, minimize, or hide
-    case macos(prevParentKind: NonLeafTreeNodeKind)
+    case macos(prevBinding: BindingDataSnapshot)
+}
+
+struct BindingDataSnapshot {
+    private weak var _parent: TreeNode?
+    let parentKind: NonLeafTreeNodeKind
+    let adaptiveWeight: CGFloat
+    let index: Int
+    private let childWeights: [TreeNodeWeightSnapshot]
+
+    var parent: NonLeafTreeNodeObject? { _parent as? NonLeafTreeNodeObject }
+
+    @MainActor
+    init(_ data: BindingData, childWeights: [TreeNodeWeightSnapshot]) {
+        _parent = data.parent
+        parentKind = data.parent.kind
+        adaptiveWeight = data.adaptiveWeight
+        index = data.index
+        self.childWeights = childWeights
+    }
+
+    @MainActor
+    func restoreChildWeights() {
+        guard let parent = parent as? TilingContainer, parent.layout == .tiles else { return }
+        for childWeight in childWeights {
+            childWeight.restore(in: parent)
+        }
+    }
+}
+
+struct TreeNodeWeightSnapshot {
+    private weak var _node: TreeNode?
+    private let weight: CGFloat
+
+    @MainActor
+    static func snapshot(from parent: NonLeafTreeNodeObject?) -> [TreeNodeWeightSnapshot] {
+        guard let parent = parent as? TilingContainer, parent.layout == .tiles else { return [] }
+        return parent.children.map { TreeNodeWeightSnapshot(node: $0, weight: $0.getWeight(parent.orientation)) }
+    }
+
+    private init(node: TreeNode, weight: CGFloat) {
+        _node = node
+        self.weight = weight
+    }
+
+    @MainActor
+    func restore(in parent: TilingContainer) {
+        guard let node = _node, node.parent === parent else { return }
+        node.setWeight(parent.orientation, weight)
+    }
 }
 
 extension Window {
