@@ -1,6 +1,22 @@
 #!/bin/zsh
 set -euo pipefail
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  cat <<'EOF'
+Usage: script/update-patched-install.sh
+
+Fetch upstream AeroSpace, rebase the local patch branch, rebuild, reinstall,
+and relaunch the patched /Applications/AeroSpace.app.
+
+Optional environment variables:
+  AEROSPACE_PATCH_BRANCH   Patch branch to rebase and install.
+  AEROSPACE_APP_PATH       App bundle to replace.
+  AEROSPACE_CLI            CLI link or binary to replace.
+  AEROSPACE_BACKUP_ROOT    Directory for install backups.
+EOF
+  exit 0
+fi
+
 script_path="${0:A}"
 repo="$(cd "${script_path:h}/.." && pwd -P)"
 patch_branch="${AEROSPACE_PATCH_BRANCH:-fix/fullscreen-restore-tiling-state}"
